@@ -33,6 +33,7 @@ router.post('/', function(req, res) {
       res.json(recording);
   })
   .then(undefined, function (err) {
+    console.log(err)
     res.status(500).json(err)
   });
 });
