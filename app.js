@@ -21,7 +21,6 @@ var recordings = require('./routes/recordings');
 
 var app = express();
 
-console.log("HIII")
 
 app.set('view cache', process.env.stage === 'production');
 swig.setDefaults({ cache: process.env.stage === 'production' });
@@ -67,20 +66,20 @@ app.use(methodOverride(function(req, res){
 //     });
 // });
 
-app.use(function(req, res, next) {
-  if(req.query && req.query.authToken) {
-    User.findByToken(req.query.authToken,function(err,user){
-      
-      if(err){ next(err); }
-      else {
-        req.currentUser = user; 
-        next(); 
-      }
-    });
-  } else {
-    next();
-  }
-});
+// app.use(function(req, res, next) {
+//   if(req.query && req.query.authToken) {
+//     User.findByToken(req.query.authToken,function(err,user){
+//
+//       if(err){ next(err); }
+//       else {
+//         req.currentUser = user;
+//         next();
+//       }
+//     });
+//   } else {
+//     next();
+//   }
+// });
 
 
 app.use('/recordings', recordings);
@@ -96,7 +95,7 @@ app.use(function(req, res, next) {
 
 // development error handler
 // will print stacktrace
-if (app.get('env') === 'development') {
+if (true || app.get('env') === 'development') {
   app.use(function(err, req, res, next) {
     res.status(err.status || 500);
     res.render('error', {
@@ -108,13 +107,13 @@ if (app.get('env') === 'development') {
 
 // production error handler
 // no stacktraces leaked to user
-app.use(function(err, req, res, next) {
-  res.status(err.status || 500);
-  res.render('error', {
-    message: err.message,
-    error: {}
-  });
-});
+// app.use(function(err, req, res, next) {
+//   res.status(err.status || 500);
+//   res.render('error', {
+//     message: err.message,
+//     error: {}
+//   });
+// });
 
 // mongoose.connect(process.env.MONGOLAB_URI || 'mongodb://localhost/dropmic');
 
