@@ -4,24 +4,24 @@ var favicon = require('serve-favicon');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
-var mongoose   = require('mongoose');
+// var mongoose   = require('mongoose');
 var swig = require('swig');
 var methodOverride = require('method-override');
 var auth = require('basic-auth')
 
-mongoose.Promise = require('bluebird');
+//mongoose.Promise = require('bluebird');
 
 
 /*** ROUTES ****/
 // var routes = require('./routes/index');
-var users = require('./routes/users');
-var followings = require('./routes/followings');
+var recordings = require('./routes/recordings');
 
 /*** MODELS ****/
-var User = require('./app/models/user');
+// var User = require('./app/models/user');
 
 var app = express();
 
+console.log("HIII")
 
 app.set('view cache', process.env.stage === 'production');
 swig.setDefaults({ cache: process.env.stage === 'production' });
@@ -54,7 +54,7 @@ app.use(methodOverride(function(req, res){
 //       html: function(){
 //         if (typeof credentials == 'undefined' || credentials['name'] != process.env.USERNAME || credentials['pass'] != process.env.PASSWORD) {
 //           res.statusCode = 401;
-//           res.setHeader('WWW-Authenticate', 'Basic realm="thumbwarapp"');
+//           res.setHeader('WWW-Authenticate', 'Basic realm="dropmic"');
 //           res.end('Unauthorized');
 //         } else {
 //           next();
@@ -83,8 +83,7 @@ app.use(function(req, res, next) {
 });
 
 
-app.use('/users', users);
-app.use('/followings', followings);
+app.use('/recordings', recordings);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
@@ -117,7 +116,7 @@ app.use(function(err, req, res, next) {
   });
 });
 
-mongoose.connect(process.env.MONGOLAB_URI || 'mongodb://localhost/thumbwarapp');
+// mongoose.connect(process.env.MONGOLAB_URI || 'mongodb://localhost/dropmic');
 
 
 module.exports = app;
