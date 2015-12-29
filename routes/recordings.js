@@ -21,7 +21,7 @@ var findOrCreateDevice = function (req, res, next) {
       }
     })
   } else {
-      next();
+    next();
   }
 };
 
@@ -30,7 +30,8 @@ router.post('/', function(req, res) {
   console.log(req.body)
   Recording.create(req.body)
   .then(function(recording){
-      res.json(recording);
+    console.log(recording);
+    res.json(recording);
   })
   .then(undefined, function (err) {
     console.log(err)

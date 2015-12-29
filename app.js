@@ -115,7 +115,7 @@ if (true || app.get('env') === 'development') {
 //   });
 // });
 
-// mongoose.connect(process.env.MONGOLAB_URI || 'mongodb://localhost/dropmic');
+mongoose.connect(process.env.MONGOLAB_URI || 'mongodb://localhost/dropmic');
 
 
 module.exports = app;
