@@ -5,7 +5,7 @@ var Device = require('../app/models/device');
 
 var findOrCreateDevice = function (req, res, next) {
   if(req.body && req.body.mac) {
-    Device.find({mac: req.body.mac}).exec()
+    Device.findOne({mac: req.body.mac}).exec()
     .then(function(device){
       if(device) {
         req.body.device = device;
