@@ -26,7 +26,7 @@ var findOrCreateDevice = function (req, res, next) {
 };
 
 
-router.post('/', function(req, res) {
+router.post('/', [findOrCreateDevice,function(req, res) {
   console.log(req.body)
   Recording.create(req.body)
   .then(function(recording){
@@ -37,6 +37,6 @@ router.post('/', function(req, res) {
     console.log(err)
     res.status(500).json(err)
   });
-});
+}]);
 
 module.exports = router;
