@@ -7,6 +7,12 @@ var engine = coreAudio.createNewAudioEngine();
 var macAddress;
 var db;
 
+var fs = require('fs');
+var path = require('path');
+var trimValue = null;
+
+
+
 function sendDataToServer(db,timestamp,deviceId) {
   console.log("This is the data we're going to try and send to the server:");
   console.log("DB: " + db);
@@ -57,7 +63,7 @@ function processAudio( inputBuffer ) {
   
   rms = Math.sqrt(total / (len / 2));
   dBFS = 20 * Math.log10(rms);
-  trim = 7.65 //From calibrate.js
+  trim = trimValue; // 7.65 //From calibrate.js
   calibratedDBFS = dBFS + trim;
   givenDb = 94.0 //The value the calibration device sends
   
@@ -92,11 +98,34 @@ engine.setOptions({
 
 // console.log(engine.read())
 
-require('getmac').getMac(function(err,ma){
-	console.log(macAddress);
-  macAddress = ma;
-  engine.addAudioCallback( processAudio );
-});
+function main() {
+  fs.readFile(path.join(__dirname, 'trim-value.txt'), {encoding: 'utf-8'}, function(err,data){
+    if (!err) {
+      console.log(data);
+      trimValue = parseFloat(data);
+    
+      if(!trimValue) {
+        console.log("DIEEEEEEEE");
+      } else {
+        console.log(trimValue);
+        require('getmac').getMac(function(err,ma){
+        	console.log(macAddress);
+          macAddress = ma;
+          engine.addAudioCallback( processAudio );
+        });
+      }
+    } else{
+      console.log(err);
+    }
+
+  });
+}
+
+main();
+
+
+
+
 
 
 console.log(engine.getNumDevices());

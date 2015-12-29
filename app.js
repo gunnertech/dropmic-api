@@ -122,7 +122,7 @@ setInterval(function checkRecordings() {
               to:       ['cody@gunnertech.com','hozencool@gmail.com'],
               from:     'no-reply@dropmic.com',
               subject:  'Error: No recordings received',
-              text:     'Device with mac address: ' + device.mac + ' has not send a recording yet.'
+              text:     'Device with mac address: ' + device.mac + ' has not sent a recording yet.'
             }, function(err, json) {
               if (err) { return console.error(err); }
               console.log(json);
@@ -140,7 +140,7 @@ setInterval(function checkRecordings() {
                 to:       ['cody@gunnertech.com','hozencool@gmail.com'],
                 from:     'no-reply@dropmic.com',
                 subject:  'Warning: No recent recordings received',
-                text:     'Device with mac address: ' + device.mac + ' has not send a recording in the past ' + diffMins + ' minutes.'
+                text:     'Device with mac address: ' + device.mac + ' has not sent a recording in the past ' + diffMins + ' minutes.'
               }, function(err, json) {
                 if (err) { return console.error(err); }
                 console.log(json);

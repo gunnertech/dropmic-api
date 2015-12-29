@@ -6,6 +6,7 @@
     "node": "0.12.x"
   },
   "dependencies": {
+    "prompt": ">= 0.0.0",
     "autorecordmic": ">= 0.0.0",
     "getmac": ">= 0.0.0",
     "node-core-audio": ">=0.0.0",
