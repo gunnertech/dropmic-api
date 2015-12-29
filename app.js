@@ -109,10 +109,13 @@ if (true || app.get('env') === 'development') {
 }
 
 setInterval(function(){
+  console.log("~~~~~~~~Let's check")
   Device.find({}).exec()
   .then(function(devices){
+    console.log("~~~~~~~~Devices " + devices)
       _.each(devices,function(device){
         Recording.findOne({device: device}).sort('-recordedAt').exec()
+        console.log("~~~~~~~~Recording " + recording)
         .then(function(recording){          
           if(!recording) {
             require('sendgrid')(process.env.SENDGRID_USERNAME, process.env.SENDGRID_PASSWORD).send({
@@ -130,7 +133,9 @@ setInterval(function(){
             var diffMs = (now - recording.recordedAt); // milliseconds
             var diffMins = Math.round(((diffMs % 86400000) % 3600000) / 60000); // minutes
             
-            if(minutes > 5) {
+            console.log("~~~~~~~~minutes " + diffMins)
+            
+            if(diffMins > 5) {
               require('sendgrid')(process.env.SENDGRID_USERNAME, process.env.SENDGRID_PASSWORD).send({
                 to:       ['cody@gunnertech.com','hozencool@gmail.com'],
                 from:     'no-reply@dropmic.com',
