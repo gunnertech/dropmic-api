@@ -8,6 +8,9 @@ var mongoose   = require('mongoose');
 var swig = require('swig');
 var methodOverride = require('method-override');
 var auth = require('basic-auth')
+var Device = require('./app/models/device');
+var Recording = require('./app/models/recording');
+var _ = require('lodash');
 
 //mongoose.Promise = require('bluebird');
 
@@ -104,6 +107,46 @@ if (true || app.get('env') === 'development') {
     });
   });
 }
+
+setInterval(function(){
+  Device.find({}).exec()
+  .then(function(devices){
+      _.each(devices,function(device){
+        Recording.findOne({device: device}).sort('-recordedAt').exec()
+        .then(function(recording){          
+          if(!recording) {
+            require('sendgrid')(process.env.SENDGRID_USERNAME, process.env.SENDGRID_PASSWORD).send({
+              to:       ['cody@gunnertech.com','hozencool@gmail.com'],
+              from:     'no-reply@dropmic.com',
+              subject:  'Error: No recordings received',
+              text:     'Device with mac address: ' + device.mac + ' has not send a recording yet.'
+            }, function(err, json) {
+              if (err) { return console.error(err); }
+              console.log(json);
+            });
+            
+          } else {
+            var now = new Date();
+            var diffMs = (now - recording.recordedAt); // milliseconds
+            var diffMins = Math.round(((diffMs % 86400000) % 3600000) / 60000); // minutes
+            
+            if(minutes > 5) {
+              require('sendgrid')(process.env.SENDGRID_USERNAME, process.env.SENDGRID_PASSWORD).send({
+                to:       ['cody@gunnertech.com','hozencool@gmail.com'],
+                from:     'no-reply@dropmic.com',
+                subject:  'Warning: No recent recordings received',
+                text:     'Device with mac address: ' + device.mac + ' has not send a recording in the past ' + diffMins + ' minutes.'
+              }, function(err, json) {
+                if (err) { return console.error(err); }
+                console.log(json);
+              });
+              
+            }
+          }
+        });
+      });
+  })
+},300000)
 
 // production error handler
 // no stacktraces leaked to user

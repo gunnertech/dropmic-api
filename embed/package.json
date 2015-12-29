@@ -1,0 +1,15 @@
+{
+  "name": "dropmic-embeds",
+  "version": "0.0.0",
+  "private": true,
+  "engines": {
+    "node": "0.12.x"
+  },
+  "dependencies": {
+    "autorecordmic": ">= 0.0.0",
+    "getmac": ">= 0.0.0",
+    "node-core-audio": ">=0.0.0",
+    "request": ">=0.0.0",
+    "rpi-gpio": ">=0.0.0"
+  }
+}
