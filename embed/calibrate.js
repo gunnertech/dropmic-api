@@ -2,10 +2,12 @@
 var coreAudio = require("node-core-audio");
 var fs = require('fs');
 var childProcess = require('child_process');
+var path = require('path');
  
 // Create a new audio engine 
 var engine = coreAudio.createNewAudioEngine();
 var samples = [];
+var savedTrimValue = null;
 
 function runScript(scriptPath, callback) {
 
@@ -64,6 +66,8 @@ function getVariance( numArr, numOfDec ){
 // 
 // Note: This function must return an output buffer 
 function processAudio( inputBuffer ) {
+  if(savedTrimValue) { return inputBuffer; }
+  
   var input = inputBuffer[0]
   , len = input.length
   , total = i = 0
@@ -81,6 +85,8 @@ function processAudio( inputBuffer ) {
   actualDBFS = 20 * Math.log10(rms);
   trim = expectedDBFS + actualDBFS
   
+  // trim = 7.65; // this is a hardcoded value for testing purposes
+  
   samples.push(trim);
   
   if(samples.length > 100) {
@@ -94,8 +100,11 @@ function processAudio( inputBuffer ) {
   console.log("trim: " + trim);
   console.log("variance: " + variance);
   
+  ///ONCE THE VARIANCE DROPS BELOW 1, WRITE THE TRIM VALUE TO A FILE, AND THEN START THE MAIN SCRIPT 
+  
   if(samples.length > 90 && variance < 1) {
-    fs.writeFile(path.join(__dirname, 'trim-value.txt'), trim, function(err) {
+    savedTrimValue = trim;
+    fs.writeFile(path.join(__dirname, 'trim-value.txt'), savedTrimValue, function(err) {
         if(err) { return console.log(err); }
 
         console.log("The file was saved!");
@@ -114,19 +123,16 @@ function processAudio( inputBuffer ) {
   return inputBuffer;
 }
 
+for(var i=0; i<engine.getNumDevices(); i++) {
+  console.log(engine.getDeviceName(i));
+}
+
+
 engine.setOptions({
   inputChannels: 1,
-  inputDevice: 0,
+  inputDevice: 5, ///THIS VALUE WILL HAVE TO BE CHANGED TO MATCH THE APPROPRIATE INPUT DEVICE
   outputChannels: 1
 });
 
-// console.log(engine.read())
 
 engine.addAudioCallback( processAudio );
-
-console.log(engine.getNumDevices());
-
-// console.log(engine.getDeviceName(0));
-// console.log(engine.getDeviceName(1));
-// console.log(engine.getDeviceName(2));
-// console.log(engine.getDeviceName(3));

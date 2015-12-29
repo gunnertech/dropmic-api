@@ -69,34 +69,12 @@ function processAudio( inputBuffer ) {
   
   db = dBFS + trim + givenDb //need to convert dbfs to db
   
-  
-  
-  
   // console.log("dBFS: " + dBFS);
   // console.log("calibratedDBFS: " + calibratedDBFS)
   // console.log("DB: " + db)
-  
-  
-  
-  
-  
 
   return inputBuffer;
 }
-
-setInterval(function() { //every second, send the data to the server
-  if(db && isFinite(db)) {
-    sendDataToServer(db,(new Date()),macAddress);
-  }
-}, 1000)
-
-engine.setOptions({
-  inputChannels: 1,
-  inputDevice: 0,
-  outputChannels: 1
-});
-
-// console.log(engine.read())
 
 function main() {
   fs.readFile(path.join(__dirname, 'trim-value.txt'), {encoding: 'utf-8'}, function(err,data){
@@ -107,6 +85,13 @@ function main() {
       if(!trimValue) {
         console.log("DIEEEEEEEE");
       } else {
+        
+        setInterval(function() { //every second, send the data to the server
+          if(db && isFinite(db)) {
+            sendDataToServer(db,(new Date()),macAddress);
+          }
+        }, 1000)
+        
         console.log(trimValue);
         require('getmac').getMac(function(err,ma){
         	console.log(macAddress);
@@ -121,6 +106,24 @@ function main() {
   });
 }
 
+
+
+for(var i=0; i<engine.getNumDevices(); i++) {
+  console.log(engine.getDeviceName(i));
+}
+
+
+engine.setOptions({
+  inputChannels: 1,
+  inputDevice: 5, ///THIS VALUE WILL HAVE TO BE CHANGED TO MATCH THE APPROPRIATE INPUT DEVICE
+  outputChannels: 1
+});
+
+
+// console.log(engine.read())
+
+
+
 main();
 
 
@@ -128,7 +131,6 @@ main();
 
 
 
-console.log(engine.getNumDevices());
 
 // console.log(engine.getDeviceName(0));
 // console.log(engine.getDeviceName(1));
