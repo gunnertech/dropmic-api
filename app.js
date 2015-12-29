@@ -108,15 +108,15 @@ if (true || app.get('env') === 'development') {
   });
 }
 
-setInterval(function(){
+setInterval(function checkRecordings() {
   console.log("~~~~~~~~Let's check")
   Device.find({}).exec()
   .then(function(devices){
     console.log("~~~~~~~~Devices " + devices)
       _.each(devices,function(device){
         Recording.findOne({device: device}).sort('-recordedAt').exec()
-        console.log("~~~~~~~~Recording " + recording)
-        .then(function(recording){          
+        .then(function(recording){
+          console.log("~~~~~~~~Recording " + recording)
           if(!recording) {
             require('sendgrid')(process.env.SENDGRID_USERNAME, process.env.SENDGRID_PASSWORD).send({
               to:       ['cody@gunnertech.com','hozencool@gmail.com'],
@@ -151,7 +151,9 @@ setInterval(function(){
         });
       });
   })
-},300000)
+  
+  return checkRecordings;
+}(),300000)
 
 // production error handler
 // no stacktraces leaked to user
