@@ -10,6 +10,7 @@ var methodOverride = require('method-override');
 var auth = require('basic-auth')
 var Device = require('./app/models/device');
 var Recording = require('./app/models/recording');
+var Notification = require('./app/models/notification');
 var _ = require('lodash');
 
 //mongoose.Promise = require('bluebird');
@@ -18,6 +19,7 @@ var _ = require('lodash');
 /*** ROUTES ****/
 // var routes = require('./routes/index');
 var recordings = require('./routes/recordings');
+var notifications = require('./routes/notifications');
 
 /*** MODELS ****/
 // var User = require('./app/models/user');
@@ -86,6 +88,7 @@ app.use(methodOverride(function(req, res){
 
 
 app.use('/recordings', recordings);
+app.use('/notifications', notifications);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
@@ -136,16 +139,13 @@ setInterval(function checkRecordings() {
             console.log("~~~~~~~~minutes " + diffMins)
             
             if(diffMins > 5) {
-              require('sendgrid')(process.env.SENDGRID_USERNAME, process.env.SENDGRID_PASSWORD).send({
-                to:       ['cody@gunnertech.com','hozencool@gmail.com'],
-                from:     'no-reply@dropmic.com',
-                subject:  'Warning: No recent recordings received',
-                text:     'Device with mac address: ' + device.mac + ' has not sent a recording in the past ' + diffMins + ' minutes.'
-              }, function(err, json) {
-                if (err) { return console.error(err); }
-                console.log(json);
+              Notification.create({
+                notificationValue: diffMinutes.toString(),
+                notificationSubject: 'Warning: No recent recordings received',
+                notificationMessage: 'Device with mac address: ' + device.mac + ' has not sent a recording in the past ' + diffMins + ' minutes.',
+                recordedAt: now,
+                device: device
               });
-              
             }
           }
         });

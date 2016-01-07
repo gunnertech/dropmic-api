@@ -10,6 +10,16 @@ var db;
 var fs = require('fs');
 var path = require('path');
 var trimValue = null;
+var lengthToAverage = 100;
+var samples = [];
+var errorThreshold = 100;
+var warningThreshold = errorThreshold - 10;
+var currentState = "green" //,yellow,red
+var gpios = {
+  "green": 1,
+  "yellow": 2,
+  "red": 3
+}
 
 
 
@@ -42,6 +52,45 @@ function sendDataToServer(db,timestamp,deviceId) {
   })
 }
 
+function sendNotificationToServer(theState,timestamp,deviceId) {
+  console.log("This is the data we're going to try and send to the server:");
+  console.log("STATE: " + theState);
+  console.log("Timestamp: " + timestamp);
+  console.log("deviceId: " + deviceId);
+  
+  request({
+    uri: 'https://dropmic.herokuapp.com/notifications',
+    method: 'POST',
+    json: {
+      notificationValue: theState,
+      notificationSubject: "Device state change",
+      notificationMessage: "Device " + deviceId + "has changed state to: " + theState,
+      recordedAt: timestamp,
+      mac: deviceId
+    }
+  },
+  function (error, response, body) {
+    if(response && response.statusCode == 200){
+      console.log('data saved')
+    } else {
+      if(response.statusCode) {
+          console.log('error: '+ response.statusCode)
+      } else {
+        console.log(response)
+      }
+
+      console.log("There was some sort of error connecting to the server. Let's try again in 10 seconds.")
+      setTimeout(function(){ 
+        sendDataToServer(db,timestamp,deviceId)
+      },10000)
+    }
+  })
+}
+
+function changeGPIOToState( theState ) {
+  var gpio = gpios[theState];
+}
+
 // Add an audio processing callback 
 // This function accepts an input buffer coming from the sound card, 
 // and returns an ourput buffer to be sent to your speakers. 
@@ -54,10 +103,10 @@ function processAudio( inputBuffer ) {
   , rms
   , trim
   , dBFS
-  , deviceId = "pooptide"
+  
   
   for ( var j = 0; j < len; j = j + 2) {
-    var sample = input[j] // 32768.0
+    var sample = input[j]; // 32768.0
     total += (sample * sample);
   }
   
@@ -68,6 +117,38 @@ function processAudio( inputBuffer ) {
   givenDb = 94.0 //The value the calibration device sends
   
   db = dBFS + trim + givenDb //need to convert dbfs to db
+  
+  samples.push(db);
+  
+  console.log(samples.length)
+  
+  if(samples.length > lengthToAverage) {
+    console.log("OK. We're in business")
+    samples.shift();
+    
+    var sum = 0;
+    for( var i = 0; i < samples.length; i++ ){
+        sum += parseInt( samples[i], 10 ); //don't forget to add the base
+    }
+
+    var avg = sum/samples.length;
+    var lastState = currentState;
+    
+    if(avg > errorThreshold) {
+      currentState = "red"
+    } else if(avg > warningThreshold) {
+      currentState = "yellow"
+    } else {
+      currentState = "green"
+    }
+    
+    
+    
+    if(lastState != currentState) {
+      sendNotificationToServer(currentState,(new Date()),macAddress);
+    }
+    
+  }
   
   // console.log("dBFS: " + dBFS);
   // console.log("calibratedDBFS: " + calibratedDBFS)
@@ -115,7 +196,7 @@ for(var i=0; i<engine.getNumDevices(); i++) {
 
 engine.setOptions({
   inputChannels: 1,
-  inputDevice: 5, ///THIS VALUE WILL HAVE TO BE CHANGED TO MATCH THE APPROPRIATE INPUT DEVICE
+  inputDevice: 0, //5, ///THIS VALUE WILL HAVE TO BE CHANGED TO MATCH THE APPROPRIATE INPUT DEVICE
   outputChannels: 1
 });
 
