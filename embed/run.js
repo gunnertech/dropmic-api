@@ -10,9 +10,9 @@ var db;
 var fs = require('fs');
 var path = require('path');
 var trimValue = null;
-var lengthToAverage = 100;
+var lengthToAverage = 10000; //TODO: What should this value be?
 var samples = [];
-var errorThreshold = 10;
+var errorThreshold = null; //READ THIS FROM A FILE
 var warningThreshold = errorThreshold - 10;
 var currentState = "green" //,yellow,red
 var gpios = {
@@ -158,32 +158,42 @@ function processAudio( inputBuffer ) {
 }
 
 function main() {
-  fs.readFile(path.join(__dirname, 'trim-value.txt'), {encoding: 'utf-8'}, function(err,data){
+  fs.readFile(path.join(__dirname, 'error-threshold.txt'), {encoding: 'utf-8'}, function(err,data){
     if (!err) {
-      console.log(data);
-      trimValue = parseFloat(data);
+      errorThreshold = parseFloat(data);
+      
+      console.log("WE GOT THE ERROR THRESHOLD: " + errorThreshold);
     
-      if(!trimValue) {
-        console.log("DIEEEEEEEE");
-      } else {
+      fs.readFile(path.join(__dirname, 'trim-value.txt'), {encoding: 'utf-8'}, function(err,data){
+        if (!err) {
+          console.log(data);
+          trimValue = parseFloat(data);
+    
+          if(!trimValue) {
+            console.log("DIEEEEEEEE");
+          } else {
         
-        setInterval(function() { //every second, send the data to the server
-          if(db && isFinite(db)) {
-            sendDataToServer(db,(new Date()),macAddress);
+            setInterval(function() { //every second, send the data to the server
+              if(db && isFinite(db)) {
+                sendDataToServer(db,(new Date()),macAddress);
+              }
+            }, 1000)
+        
+            console.log(trimValue);
+            require('getmac').getMac(function(err,ma){
+            	console.log(macAddress);
+              macAddress = ma;
+              engine.addAudioCallback( processAudio );
+            });
           }
-        }, 1000)
-        
-        console.log(trimValue);
-        require('getmac').getMac(function(err,ma){
-        	console.log(macAddress);
-          macAddress = ma;
-          engine.addAudioCallback( processAudio );
-        });
-      }
-    } else{
+        } else{
+          console.log(err);
+        }
+
+      });
+    } else {
       console.log(err);
     }
-
   });
 }
 
