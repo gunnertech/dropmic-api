@@ -166,7 +166,7 @@ function changeLevelToViolation() {
       console.log('err ' + err);
     } else {
       console.log('results: ' + results);
-      currentDeviceState = "violation";
+      currentLevelState = "violation";
       sendNotificationToServer(currentLevelState,'level',(new Date()),macAddress);
     }
   });
@@ -195,7 +195,7 @@ function changeLevelToWarning() {
       console.log('err ' + err);
     } else {
       console.log('results: ' + results);
-      currentDeviceState = "warning";
+      currentLevelState = "warning";
       sendNotificationToServer(currentLevelState,'level',(new Date()),macAddress);
     }
   });
@@ -229,7 +229,7 @@ function changeLevelToNormal() {
       console.log('err ' + err);
     } else {
       console.log('results: ' + results);
-      currentDeviceState = "normal";
+      currentLevelState = "normal";
       sendNotificationToServer(currentLevelState,'level',(new Date()),macAddress);
     }
   });
