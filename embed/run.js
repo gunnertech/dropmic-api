@@ -119,6 +119,7 @@ function changeDeviceFromConnected() {
 }
 
 function changeDeviceToConnected() {
+  console.log("~~~~~~~~ " + currentDeviceState)
   if(currentDeviceState == "connected"){ return; }
   
   if(global["changeDeviceFrom" + currentDeviceState]) {
@@ -243,7 +244,7 @@ function sendDataToServer(deviceState,levelState,db,timestamp,deviceId) {
   request({
     uri: 'https://dropmic.herokuapp.com/recordings',
     method: 'POST',
-    json: {dbValue: db, recordedAt: timestamp, mac: deviceId }
+    json: {levelState: levelState, deviceState: deviceState, dbValue: db, recordedAt: timestamp, mac: deviceId }
   },
   function (error, response, body) {
     if(response && response.statusCode == 200){
