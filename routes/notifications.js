@@ -27,10 +27,8 @@ var findOrCreateDevice = function (req, res, next) {
 
 
 router.post('/', [findOrCreateDevice,function(req, res) {
-  console.log(req.body)
   Notification.create(req.body)
   .then(function(notification){
-    console.log(notification);
     res.json(notification);
   })
   .then(undefined, function (err) {
