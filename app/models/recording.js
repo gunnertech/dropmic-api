@@ -3,8 +3,8 @@ var Schema       = mongoose.Schema;
 
 
 var schema  = new Schema({
-  deviceState: {type: String, required: true},
-  levelState: {type: String, required: true},
+  deviceState: {type: String},
+  levelState: {type: String},
   dbValue: {type: Number, required: true},
   recordedAt: {type: Date, required: true},
   device: {type: Schema.Types.ObjectId, ref: 'Device', required: true}
