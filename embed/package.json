@@ -11,6 +11,7 @@
     "getmac": ">= 0.0.0",
     "node-core-audio": ">=0.0.0",
     "request": ">=0.0.0",
-    "rpi-gpio": ">=0.0.0"
+    "gpio": ">=0.0.0",
+    "serialport": ">=0.0.0"
   }
 }
