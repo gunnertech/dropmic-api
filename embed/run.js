@@ -41,6 +41,10 @@ var stateToGpio = {
 
 ///// DEVICE STATE CHANGES
 
+function toTitleCase(str) {
+    return str.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
+}
+
 function changeDeviceFromConnecting() {
   serialPort.write("gpio clear 0\n\r", function(err, results) { 
     if(err) {
@@ -53,11 +57,11 @@ function changeDeviceFromConnecting() {
 }
 
 function changeDeviceToConnecting() {
+  console.log("CONNECTING ~~~~~~~~ " + toTitleCase(currentDeviceState))
   if(currentDeviceState == "connecting"){ return; }
   
-  if(global["changeDeviceFrom" + currentDeviceState]) {
-    global["changeDeviceFrom" + currentDeviceState].apply(this);
-  }
+  if(currentDeviceState){ eval("changeDeviceFrom" + toTitleCase(currentDeviceState) + "()"); }
+  
   
   connectingInterval = setInterval(function(){
     global["connectingCommand"] = global["connectingCommand"] == "set" ? "clear" : "set";
@@ -67,6 +71,7 @@ function changeDeviceToConnecting() {
         console.log('err ' + err);
       } else {
         console.log('results: ' + results);
+        console.log("!!!!!!!!!!!!!")
         currentDeviceState = "connecting";
         sendNotificationToServer(currentDeviceState,'device',(new Date()),macAddress);
       }
@@ -88,9 +93,7 @@ function changeDeviceFromLostPower() {
 function changeDeviceToLostPower() {
   if(currentDeviceState == "lostPower"){ return; }
   
-  if(global["changeDeviceFrom" + currentDeviceState]) {
-    global["changeDeviceFrom" + currentDeviceState].apply(this);
-  }
+  if(currentDeviceState){ eval("changeDeviceFrom" + toTitleCase(currentDeviceState) + "()"); }
   
   connectingInterval = setInterval(function(){
     global["connectingCommand"] = global["connectingCommand"] == "set" ? "clear" : "set";
@@ -119,12 +122,10 @@ function changeDeviceFromConnected() {
 }
 
 function changeDeviceToConnected() {
-  console.log("~~~~~~~~ " + currentDeviceState)
+  console.log("CONNECTED ~~~~~~~~ " + toTitleCase(currentDeviceState))
   if(currentDeviceState == "connected"){ return; }
   
-  if(global["changeDeviceFrom" + currentDeviceState]) {
-    global["changeDeviceFrom" + currentDeviceState].apply(this);
-  }
+  if(currentDeviceState){ eval("changeDeviceFrom" + toTitleCase(currentDeviceState) + "()"); }
   
   console.log("~~~~~~~~ OK")
 
@@ -134,6 +135,7 @@ function changeDeviceToConnected() {
     } else {
       console.log('results: ' + results);
       currentDeviceState = "connected";
+      console.log("AGAIN ~~~~~~~~ " + toTitleCase(currentDeviceState))
       sendNotificationToServer(currentDeviceState,'device',(new Date()),macAddress);
     }
   });
@@ -156,9 +158,7 @@ function changeLevelFromViolation() {
 function changeLevelToViolation() {
   if(currentLevelState == "violation"){ return; }
   
-  if(global["changeLevelFrom" + currentLevelState]) {
-    global["changeLevelFrom" + currentLevelState].apply(this);
-  }
+  eval("changeLevelFrom" + toTitleCase(currentLevelState) + "()");
   
 
   serialPort.write("gpio set 2\n\r", function(err, results) { 
@@ -185,9 +185,7 @@ function changeLevelFromWarning() {
 function changeLevelToWarning() {
   if(currentLevelState == "warning"){ return; }
   
-  if(global["changeLevelFrom" + currentLevelState]) {
-    global["changeLevelFrom" + currentLevelState].apply(this);
-  }
+  eval("changeLevelFrom" + toTitleCase(currentLevelState) + "()");
   
 
   serialPort.write("gpio set 1\n\r", function(err, results) { 
@@ -220,9 +218,7 @@ function changeLevelFromNormal() {
 function changeLevelToNormal() {
   if(currentLevelState == "normal"){ return; }
   
-  if(global["changeLevelFrom" + currentLevelState]) {
-    global["changeLevelFrom" + currentLevelState].apply(this);
-  }
+  eval("changeLevelFrom" + toTitleCase(currentLevelState) + "()");
 
   serialPort.write("gpio set 0\n\r", function(err, results) { 
     if(err) {
@@ -236,6 +232,8 @@ function changeLevelToNormal() {
 }
 
 function sendDataToServer(deviceState,levelState,db,timestamp,deviceId) {
+  if(!deviceId){ return; }
+  
   console.log("This is the data we're going to try and send to the server:");
   console.log("DB: " + db);
   console.log("Timestamp: " + timestamp);
@@ -253,6 +251,8 @@ function sendDataToServer(deviceState,levelState,db,timestamp,deviceId) {
       changeDeviceToConnected();
       
     } else {
+      console.log("~~~~~~~~ CHANGING AGAIN");
+      
       changeDeviceToConnecting();
       
       if(response.statusCode) {
