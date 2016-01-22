@@ -27,6 +27,7 @@ var findOrCreateDevice = function (req, res, next) {
 
 
 router.post('/', [findOrCreateDevice,function(req, res) {
+  console.log(req.body)
   Recording.create(req.body)
   .then(function(recording){
     res.json(recording);
