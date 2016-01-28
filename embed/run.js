@@ -6,10 +6,11 @@ var SerialPort = require("serialport").SerialPort;
 var fs = require('fs');
 var path = require('path');
 
+var serialPortLocation = "/dev/tty.usbmodem1411"
 
-var serialPort = new SerialPort("/dev/tty.usbmodem1411", {
-  baudrate: 9600
-},false);
+
+var serialPort = null;
+
 var serialPortConnected = false;
 var connectingInterval = null;
 
@@ -30,7 +31,8 @@ var stateToGpio = {
   "lostPower": 1,
   "warning": 2,
   "violation": 3
-}
+};
+
 
 
 // serialPort.on("open", function () {
@@ -70,8 +72,6 @@ function changeDeviceToConnecting() {
       if(err) {
         console.log('err ' + err);
       } else {
-        console.log('results: ' + results);
-        console.log("!!!!!!!!!!!!!")
         currentDeviceState = "connecting";
         sendNotificationToServer(currentDeviceState,'device',(new Date()),macAddress);
       }
@@ -122,12 +122,10 @@ function changeDeviceFromConnected() {
 }
 
 function changeDeviceToConnected() {
-  console.log("CONNECTED ~~~~~~~~ " + toTitleCase(currentDeviceState))
   if(currentDeviceState == "connected"){ return; }
   
   if(currentDeviceState){ eval("changeDeviceFrom" + toTitleCase(currentDeviceState) + "()"); }
   
-  console.log("~~~~~~~~ OK")
 
   serialPort.write("gpio set 0\n\r", function(err, results) { 
     if(err) {
@@ -135,7 +133,6 @@ function changeDeviceToConnected() {
     } else {
       console.log('results: ' + results);
       currentDeviceState = "connected";
-      console.log("AGAIN ~~~~~~~~ " + toTitleCase(currentDeviceState))
       sendNotificationToServer(currentDeviceState,'device',(new Date()),macAddress);
     }
   });
@@ -417,21 +414,6 @@ engine.setOptions({
   outputChannels: 1
 });
 
-serialPort.open(function (error) {
-  if ( error ) {
-    console.log('failed to open: ' + error);
-    return;
-  }
-  
-  serialPort.write("\n\r", function(err, results) {
-    serialPort.write("\n\r", function(err, results) {
-      console.log("~~~~~~~~ connecting!!!!")
-      changeDeviceToConnecting();
-    });
-  });
-});
-
-
 // console.log(engine.read())
 
 
@@ -439,7 +421,54 @@ serialPort.open(function (error) {
 main();
 
 
-
+fs.readdir('/dev', function(err, items){
+  if (err) throw err;
+  for (var i=0; i<items.length; i++) {
+    if(items[i].match(/tty\.usbmodem/)) {
+      serialPortLocation = "/dev/"+items[i];
+      serialPort = new SerialPort(serialPortLocation, {
+        baudrate: 9600
+      },false);
+      
+      serialPort.open(function (error) {
+        if ( error ) {
+          console.log('failed to open: ' + error);
+          return;
+        }
+        
+        serialPort.on('data', function(data) {
+          var dataString = data.toString();
+          if(dataString.match(/gpio read 3/)){
+            if(dataString.match(/0/)) { //it's on
+              console.log("^^^^ We lost power!")
+              changeDeviceToConnected();
+            } else { //it's off
+              console.log("^^^^ We lost power!")
+              changeDeviceToLostPower();
+            }
+          }
+        });
+  
+        serialPort.write("\n\r", function(err, results) {
+          serialPort.write("\n\r", function(err, results) {
+            console.log("~~~~~~~~ connecting!!!!")
+            changeDeviceToConnecting();
+            setInterval(function(){
+              serialPort.write("gpio read 3\n\r", function(err, results) { 
+                if(err) {
+                  console.log('!!!!!!!!! err ' + err);
+                } else {
+                  console.log('!!!!!!!!! results: ' + results);
+                }
+              });
+            },10000);
+          });
+        });
+      });
+      
+    }
+  }
+});
 
 
 
