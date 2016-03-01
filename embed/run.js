@@ -410,7 +410,7 @@ for(var i=0; i<engine.getNumDevices(); i++) {
 
 engine.setOptions({
   inputChannels: 1,
-  inputDevice: 0, //5, ///THIS VALUE WILL HAVE TO BE CHANGED TO MATCH THE APPROPRIATE INPUT DEVICE
+  inputDevice: 2, //5, ///THIS VALUE WILL HAVE TO BE CHANGED TO MATCH THE APPROPRIATE INPUT DEVICE
   outputChannels: 1
 });
 
