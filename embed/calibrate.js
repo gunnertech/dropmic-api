@@ -75,6 +75,9 @@ function processAudio( inputBuffer ) {
   , trim
   , dBFS
   
+  
+  console.log("~~~~~~~~~LENGTH: " + len)
+  
   for ( var j = 0; j < len; j = j + 2) {
     var sample = input[j] // 32768.0
     total += (sample * sample);

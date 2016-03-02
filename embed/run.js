@@ -1,7 +1,7 @@
 var coreAudio = require("node-core-audio");
 var http = require("http");
 var request = require('request');
-var gpio = require("gpio");
+//var gpio = require("gpio");
 var SerialPort = require("serialport").SerialPort;
 var fs = require('fs');
 var path = require('path');
@@ -13,7 +13,6 @@ var serialPort = null;
 
 var serialPortConnected = false;
 var connectingInterval = null;
-
 var engine = coreAudio.createNewAudioEngine();
 var macAddress;
 var db;
@@ -314,6 +313,7 @@ function processAudio( inputBuffer ) {
   , trim
   , dBFS
   
+  console.log("~~~~~~~~~LENGTH: " + len)
   
   for ( var j = 0; j < len; j = j + 2) {
     var sample = input[j]; // 32768.0
@@ -330,8 +330,6 @@ function processAudio( inputBuffer ) {
   
   samples.push(db);
   
-  console.log(samples.length)
-  
   if(samples.length > lengthToAverage) {
     console.log("OK. We're in business")
     samples.shift();
@@ -344,17 +342,17 @@ function processAudio( inputBuffer ) {
     var avg = sum/samples.length;
     var lastState = currentLevelState;
     
-    if(avg > errorThreshold) {
-      changeLevelToViolation();
-    } else if(avg > warningThreshold) {
-      changeLevelToWarning();
-    } else {
-      changeLevelToNormal();
-    }
+    // if(avg > errorThreshold) {
+    //   changeLevelToViolation();
+    // } else if(avg > warningThreshold) {
+    //   changeLevelToWarning();
+    // } else {
+    //   changeLevelToNormal();
+    // }
     
   }
   
-  // console.log("dBFS: " + dBFS);
+  console.log("dBFS: " + dBFS);
   // console.log("calibratedDBFS: " + calibratedDBFS)
   // console.log("DB: " + db)
 
@@ -410,32 +408,32 @@ for(var i=0; i<engine.getNumDevices(); i++) {
 
 engine.setOptions({
   inputChannels: 1,
-  inputDevice: 2, //5, ///THIS VALUE WILL HAVE TO BE CHANGED TO MATCH THE APPROPRIATE INPUT DEVICE
+  inputDevice: 0, //5, ///THIS VALUE WILL HAVE TO BE CHANGED TO MATCH THE APPROPRIATE INPUT DEVICE
   outputChannels: 1
 });
 
-// console.log(engine.read())
+console.log(engine.getOptions())
 
-
-
-main();
+engine.addAudioCallback( processAudio );
 
 
 fs.readdir('/dev', function(err, items){
   if (err) throw err;
   for (var i=0; i<items.length; i++) {
-    if(items[i].match(/tty\.usbmodem/)) {
+    if(items[i].match(/tty\.usbmodem/) || items[i].match(/ttyACM/)) {
       serialPortLocation = "/dev/"+items[i];
       serialPort = new SerialPort(serialPortLocation, {
         baudrate: 9600
       },false);
-      
+
       serialPort.open(function (error) {
         if ( error ) {
           console.log('failed to open: ' + error);
           return;
         }
-        
+
+        main();
+
         serialPort.on('data', function(data) {
           var dataString = data.toString();
           if(dataString.match(/gpio read 3/)){
@@ -448,13 +446,13 @@ fs.readdir('/dev', function(err, items){
             }
           }
         });
-  
+
         serialPort.write("\n\r", function(err, results) {
           serialPort.write("\n\r", function(err, results) {
             console.log("~~~~~~~~ connecting!!!!")
             changeDeviceToConnecting();
             setInterval(function(){
-              serialPort.write("gpio read 3\n\r", function(err, results) { 
+              serialPort.write("gpio read 3\n\r", function(err, results) {
                 if(err) {
                   console.log('!!!!!!!!! err ' + err);
                 } else {
@@ -465,7 +463,7 @@ fs.readdir('/dev', function(err, items){
           });
         });
       });
-      
+
     }
   }
 });
