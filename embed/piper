@@ -1,0 +1,5 @@
+#!/bin/bash
+while true; do
+    rec  -c 2 ./tmp_rec.wav trim 0 1;
+    sox  -t .wav ./tmp_rec.wav -n stat 2>&1 | grep "Maximum amplitude" | cut -d ':' -f 2 | cat
+done
