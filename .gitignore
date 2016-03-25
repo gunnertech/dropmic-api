@@ -30,7 +30,9 @@ build/Release
 # Dependency directory
 # https://www.npmjs.org/doc/misc/npm-faq.html#should-i-check-my-node_modules-folder-into-git
 
-node_modules/*
+node_modules
 node_modules_tmp
+embed/node_modules_tmp
+embed/node_modules
 error-threshold.txt
 trim-value.txt
