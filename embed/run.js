@@ -1,44 +1,22 @@
-var coreAudio = require("node-core-audio");
+var fs = require('fs');
+var childProcess = require('child_process');
+var path = require('path');
 var http = require("http");
 var request = require('request');
-//var gpio = require("gpio");
 var SerialPort = require("serialport").SerialPort;
-var fs = require('fs');
-var path = require('path');
-
-var serialPortLocation = "/dev/tty.usbmodem1411"
 
 
-var serialPort = null;
-
-var serialPortConnected = false;
-var connectingInterval = null;
-var engine = coreAudio.createNewAudioEngine();
-var macAddress;
-var db;
-
-var trimValue = null;
-var lengthToAverage = 10000; //TODO: What should this value be?
 var samples = [];
-var errorThreshold = null; //READ THIS FROM A FILE
+var lengthToAverage = 1; //10000; //TODO: What should this value be?
+var errorThreshold = 100; //TODO: Just guessing here
 var warningThreshold = errorThreshold - 10;
-var currentDeviceState = "" //,yellow,red
-var currentLevelState = "" //,yellow,red
-var stateToGpio = {
-  "connecting": 1,
-  "connected": 1,
-  "lostPower": 1,
-  "warning": 2,
-  "violation": 3
-};
-
-
-
-// serialPort.on("open", function () {
-//   serialPort.on('data', function(data) {
-//     console.log('data received: ' + data + ' huh?');
-//   });
-// });
+var currentDeviceState = ""; //,yellow,red
+var currentLevelState = ""; //,yellow,red
+var savedTrimValue = null;
+var db = null;
+var macAddress = null;
+var serialPort = null;
+var httpTimer = null;
 
 ///// DEVICE STATE CHANGES
 
@@ -214,7 +192,9 @@ function changeLevelFromNormal() {
 function changeLevelToNormal() {
   if(currentLevelState == "normal"){ return; }
   
-  eval("changeLevelFrom" + toTitleCase(currentLevelState) + "()");
+  if (currentLevelState) {
+    eval("changeLevelFrom" + toTitleCase(currentLevelState) + "()");
+  }
 
   serialPort.write("gpio set 0\n\r", function(err, results) { 
     if(err) {
@@ -251,7 +231,7 @@ function sendDataToServer(deviceState,levelState,db,timestamp,deviceId) {
       
       changeDeviceToConnecting();
       
-      if(response.statusCode) {
+      if(response) {
           console.log('error: '+ response.statusCode)
       } else {
         console.log(response)
@@ -266,6 +246,8 @@ function sendDataToServer(deviceState,levelState,db,timestamp,deviceId) {
 }
 
 function sendNotificationToServer(theState,stateType,timestamp,deviceId) {
+  if(!deviceId){ return; }
+
   console.log("This is the data we're going to try and send to the server:");
   console.log("STATE: " + theState);
   console.log("Timestamp: " + timestamp);
@@ -300,178 +282,177 @@ function sendNotificationToServer(theState,stateType,timestamp,deviceId) {
   })
 }
 
-// Add an audio processing callback 
-// This function accepts an input buffer coming from the sound card, 
-// and returns an ourput buffer to be sent to your speakers. 
-// 
-// Note: This function must return an output buffer 
-function processAudio( inputBuffer ) {
-  var input = inputBuffer[0]
-  , len = input.length
-  , total = i = 0
-  , rms
-  , trim
-  , dBFS
-  
-  console.log("~~~~~~~~~LENGTH: " + len)
-  
-  for ( var j = 0; j < len; j = j + 2) {
-    var sample = input[j]; // 32768.0
-    total += (sample * sample);
-  }
-  
-  rms = Math.sqrt(total / (len / 2));
-  dBFS = 20 * Math.log10(rms);
-  trim = trimValue; // 7.65 //From calibrate.js
-  calibratedDBFS = dBFS + trim;
-  givenDb = 94.0 //The value the calibration device sends
-  
-  db = dBFS + trim + givenDb //need to convert dbfs to db
-  
-  samples.push(db);
-  
-  if(samples.length > lengthToAverage) {
-    console.log("OK. We're in business")
-    samples.shift();
-    
-    var sum = 0;
-    for( var i = 0; i < samples.length; i++ ){
-        sum += parseInt( samples[i], 10 ); //don't forget to add the base
-    }
 
-    var avg = sum/samples.length;
-    var lastState = currentLevelState;
-    
-    // if(avg > errorThreshold) {
-    //   changeLevelToViolation();
-    // } else if(avg > warningThreshold) {
-    //   changeLevelToWarning();
-    // } else {
-    //   changeLevelToNormal();
-    // }
-    
-  }
-  
-  console.log("dBFS: " + dBFS);
-  // console.log("calibratedDBFS: " + calibratedDBFS)
-  // console.log("DB: " + db)
-
-  return inputBuffer;
+function getNumWithSetDec( num, numOfDec ){
+  var pow10s = Math.pow( 10, numOfDec || 0 );
+  return ( numOfDec ) ? Math.round( pow10s * num ) / pow10s : num;
 }
 
-function main() {
-  fs.readFile(path.join(__dirname, 'error-threshold.txt'), {encoding: 'utf-8'}, function(err,data){
-    if (!err) {
-      errorThreshold = parseFloat(data);
+function getAverageFromNumArr( numArr, numOfDec ){
+  var i = numArr.length, 
+  sum = 0;
+  while( i-- ){
+    sum += numArr[ i ];
+  }
+  
+  return getNumWithSetDec( (sum / numArr.length ), numOfDec );
+}
+
+function getVariance( numArr, numOfDec ){
+  var avg = getAverageFromNumArr( numArr, numOfDec ), 
+  i = numArr.length,
+  v = 0;
+
+  while( i-- ){
+    v += Math.pow( (numArr[ i ] - avg), 2 );
+  }
+  v /= numArr.length;
+  return getNumWithSetDec( v, numOfDec );
+}
+
+function processAudio(rms) {
+  var expectedDBFS = 94.0; //The value the calibration device sends
+  var actualDBFS = 20 * Math.log10(rms);
+  var trim;
+
+  savedTrimValue = fs.readFileSync(path.join(__dirname, 'trim-value.txt'), {encoding: 'utf-8'});
+  
+
+  if (!httpTimer) {
+    httpTimer = setInterval(function() { //every second, send the data to the server
+      if(db && isFinite(db) && currentDeviceState && currentLevelState && macAddress) {
+        sendDataToServer(currentDeviceState,currentLevelState,db,(new Date()), macAddress);
+      }
+    }, 1000);
+  }
+
+  if(!macAddress) {
+    require('getmac').getMac(function(err,ma){
+      macAddress = ma;
+    });
+  }
+
+  if(savedTrimValue) { //it's calibrated. Let's get the db and send it along
+    savedTrimValue = parseFloat(savedTrimValue);
+    db = actualDBFS + savedTrimValue + expectedDBFS;
+
+    samples.push(db);
+    
+    if(samples.length > lengthToAverage) {
+      samples.shift();
       
-      console.log("WE GOT THE ERROR THRESHOLD: " + errorThreshold);
-    
-      fs.readFile(path.join(__dirname, 'trim-value.txt'), {encoding: 'utf-8'}, function(err,data){
-        if (!err) {
-          console.log(data);
-          trimValue = parseFloat(data);
-    
-          if(!trimValue) {
-            console.log("DIEEEEEEEE");
-          } else {
-        
-            setInterval(function() { //every second, send the data to the server
-              if(db && isFinite(db)) {
-                sendDataToServer(currentDeviceState,currentLevelState,db,(new Date()),macAddress);
-              }
-            }, 1000)
-        
-            console.log(trimValue);
-            require('getmac').getMac(function(err,ma){
-            	console.log(macAddress);
-              macAddress = ma;
-              engine.addAudioCallback( processAudio );
-            });
-          }
-        } else{
-          console.log(err);
+      var sum = 0;
+      for( var i = 0; i < samples.length; i++ ){
+          sum += parseInt( samples[i], 10 ); //don't forget to add the base
+      }
+
+      var avg = sum/samples.length;
+      var lastState = currentLevelState;
+
+      if (serialPort) {
+        if(avg > errorThreshold) {
+          changeLevelToViolation();
+        } else if(avg > warningThreshold) {
+          changeLevelToWarning();
+        } else {
+          changeLevelToNormal();
         }
+      } else {
+        console.log("We need to connect GPIO");
 
-      });
-    } else {
-      console.log(err);
-    }
-  });
-}
+        fs.readdir('/dev', function(err, items){
+          if (err) throw err;
+          for (var i=0; i<items.length; i++) {
+            if(items[i].match(/tty\.usbmodem/) || items[i].match(/ttyACM/)) {
+              serialPortLocation = "/dev/"+items[i];
+              serialPort = new SerialPort(serialPortLocation, {
+                baudrate: 9600
+              },false);
 
+              serialPort.open(function (error) {
+                if ( error ) {
+                  console.log('failed to open: ' + error);
+                  return;
+                }
 
+                serialPort.on('data', function(data) {
+                  var dataString = data.toString();
+                  if(dataString.match(/gpio read 3/)){
+                    if(dataString.match(/0/)) { //it's on
+                      console.log("^^^^ We lost power!")
+                      changeDeviceToConnected();
+                    } else { //it's off
+                      console.log("^^^^ We lost power!")
+                      changeDeviceToLostPower();
+                    }
+                  }
+                });
 
-for(var i=0; i<engine.getNumDevices(); i++) {
-  console.log(engine.getDeviceName(i));
-}
+                serialPort.write("\n\r", function(err, results) {
+                  serialPort.write("\n\r", function(err, results) {
+                    console.log("~~~~~~~~ connecting!!!!")
+                    changeDeviceToConnecting();
+                    setInterval(function(){
+                      serialPort.write("gpio read 3\n\r", function(err, results) {
+                        if(err) {
+                          console.log('!!!!!!!!! err ' + err);
+                        } else {
+                          console.log('!!!!!!!!! results: ' + results);
+                        }
+                      });
+                    },10000);
+                  });
+                });
+              });
 
-
-engine.setOptions({
-  inputChannels: 1,
-  inputDevice: 0, //5, ///THIS VALUE WILL HAVE TO BE CHANGED TO MATCH THE APPROPRIATE INPUT DEVICE
-  outputChannels: 1
-});
-
-console.log(engine.getOptions())
-
-engine.addAudioCallback( processAudio );
-
-
-fs.readdir('/dev', function(err, items){
-  if (err) throw err;
-  for (var i=0; i<items.length; i++) {
-    if(items[i].match(/tty\.usbmodem/) || items[i].match(/ttyACM/)) {
-      serialPortLocation = "/dev/"+items[i];
-      serialPort = new SerialPort(serialPortLocation, {
-        baudrate: 9600
-      },false);
-
-      serialPort.open(function (error) {
-        if ( error ) {
-          console.log('failed to open: ' + error);
-          return;
-        }
-
-        main();
-
-        serialPort.on('data', function(data) {
-          var dataString = data.toString();
-          if(dataString.match(/gpio read 3/)){
-            if(dataString.match(/0/)) { //it's on
-              console.log("^^^^ We lost power!")
-              changeDeviceToConnected();
-            } else { //it's off
-              console.log("^^^^ We lost power!")
-              changeDeviceToLostPower();
             }
           }
         });
 
-        serialPort.write("\n\r", function(err, results) {
-          serialPort.write("\n\r", function(err, results) {
-            console.log("~~~~~~~~ connecting!!!!")
-            changeDeviceToConnecting();
-            setInterval(function(){
-              serialPort.write("gpio read 3\n\r", function(err, results) {
-                if(err) {
-                  console.log('!!!!!!!!! err ' + err);
-                } else {
-                  console.log('!!!!!!!!! results: ' + results);
-                }
-              });
-            },10000);
-          });
-        });
-      });
-
+      }
     }
+     
+  } else { //need to calibrate this shit first
+    console.log("Shit. We need to calibrate.");
+
+    trim = expectedDBFS + actualDBFS
+    
+    
+    samples.push(trim);
+    
+    if(samples.length > 100) {
+      samples.shift();
+    }
+    
+    var variance = getVariance( samples, 4 );
+
+    ///ONCE THE VARIANCE DROPS BELOW 1, WRITE THE TRIM VALUE TO A FILE, AND THEN START THE MAIN SCRIPT 
+    
+    if(samples.length > 90 && variance < 1) {
+      savedTrimValue = trim;
+      fs.writeFile(path.join(__dirname, 'trim-value.txt'), savedTrimValue, function(err) {
+        if(err) { return console.log(err); }
+
+        console.log("The file was saved!");
+      }); 
+    }
+
   }
-});
+}
 
+function main() {
 
+  var exec = require('child_process').exec;
+  var recCmd = 'rec  -c 2 ./tmp_rec.wav trim 0 1;';
+  var soxCmd = "sox  -t .wav ./tmp_rec.wav -n stat 2>&1 | grep \"Maximum amplitude\" | cut -d ':' -f 2 | cat";
 
+  exec(recCmd, function(error, stdout, stderr) {
+    exec(soxCmd, function(error, stdout, stderr) {
+      var rms = parseFloat(stdout.trim());
+      processAudio(rms);
+    });    
+  });
 
-// console.log(engine.getDeviceName(0));
-// console.log(engine.getDeviceName(1));
-// console.log(engine.getDeviceName(2));
-// console.log(engine.getDeviceName(3));
+}
+
+setInterval(main,1000);
